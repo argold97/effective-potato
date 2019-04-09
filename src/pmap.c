@@ -54,13 +54,14 @@ void pmap_init(multiboot_info_t* mbd)
 		}
 
 		uint32_t addr_start = (addr + 0xfff) & 0xfffff000;
-		if(len < (addr_start - addr + 0x1000))
+		len = (len - (addr_start - addr)) & 0xfffff000;
+		if(!len)
 		{
 			debug_printf("Aligned section smaller than 4KB. Ignoring.\n");
 			goto ignore_section;
 		}
 		
-		uint32_t addr_end = addr_start + ((len - (addr_start - addr)) & 0xfffff000);
+		uint32_t addr_end = addr_start + len;
 		
 		uint32_t page_start = addr_start >> 12;
 		uint32_t page_end = addr_end >> 12;
@@ -74,18 +75,18 @@ void pmap_init(multiboot_info_t* mbd)
 		if(block_start != block_end)
 		{
 			uint32_t first_block = 0;
-			for(uint8_t b = page_start_offset; b < 32; ++b)
+			for(uint8_t b = 0; b < page_start_offset; ++b)
 			{
 				first_block |= (1 << b);
 			}
-			pmap_alloc_table[block_start] = ~first_block;
+			pmap_alloc_table[block_start] &= first_block;
 			
 			uint32_t last_block = 0;
-			for(uint8_t b = 0; b < page_end_offset; ++b)
+			for(uint8_t b = page_end_offset; b < 32; ++b)
 			{
 				last_block |= (1 << b);
 			}
-			pmap_alloc_table[block_end] = ~last_block;
+			pmap_alloc_table[block_end] &= last_block;
 			
 			for(uint16_t block = block_start + 1; block < block_end; ++block)
 			{
@@ -97,7 +98,7 @@ void pmap_init(multiboot_info_t* mbd)
 			{
 				block |= (1 << b);
 			}
-			pmap_alloc_table[block] = ~block;
+			pmap_alloc_table[block] &= ~block;
 		}
 		
 		if(pmap_alloc_table[block_start])
